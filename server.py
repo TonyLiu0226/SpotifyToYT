@@ -44,20 +44,20 @@ async def playlist( id: str):
                 if response.status == 200:
                     #must return name of playlist and its tracks (name, artists list)
                     #currently only returns 100 songs for some reason
-                    names = []
-                    artists = []
+                    songs = {}
                     result = await response.json()
 
                     for i in range (len(result['tracks']['items'])):
                         print(result['tracks']['items'][i])
-                        names.append(result['tracks']['items'][i]['track']['name'])
+                        songs[(result['tracks']['items'][i]['track']['name'])] = []
+
+                        localArtists = []
                         for artist in result['tracks']['items'][i]['track']['album']['artists']:
-                            localArtists = []
                             localArtists.append(artist['name'])
 
-                        artists.append(localArtists)     
+                        songs[(result['tracks']['items'][i]['track']['name'])].append(localArtists)  
 
-                    return (names, artists)
+                    return (songs)
                 else:
                     return ("Error fetching playlist data " + str(response.text), 500)
         else:
