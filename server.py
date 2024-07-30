@@ -14,8 +14,7 @@ async def lifespan(app: FastAPI):
     global session
     global token
     session = ClientSession()
-    token = authenticate(session)
-    print(token)
+    token = await authenticate(session)
     yield
     # Clean up the ML models and release the resources
     await session.close()
@@ -35,17 +34,38 @@ def read_item(item_id: int, q: Union[str, None] = None):
 
 @app.get("/playlist")
 async def playlist( id: str):
-    if id:
-        async with session.get(f"https://api.spotify.com/v1/playlists/{id}") as response:
-            if response.status == 200:
-                #must return name of playlist and its tracks (name, artists list)
-                return response.text
-            else:
-                return ("Error fetching playlist data " + str(response.text), 500)
-    else:
-        return ("Error, no id specified", 500)
+    print(token)
+    headers = {
+        'Authorization': 'Bearer ' + token
+    }
+    try:
+        if id:
+            async with session.get(f"https://api.spotify.com/v1/playlists/{id}?fields=tracks.items(track(name, album(artists)))", headers=headers) as response:
+                if response.status == 200:
+                    #must return name of playlist and its tracks (name, artists list)
+                    #currently only returns 100 songs for some reason
+                    names = []
+                    artists = []
+                    result = await response.json()
 
-@app.get("/authenticate")
+                    for i in range (len(result['tracks']['items'])):
+                        print(result['tracks']['items'][i])
+                        names.append(result['tracks']['items'][i]['track']['name'])
+                        for artist in result['tracks']['items'][i]['track']['album']['artists']:
+                            localArtists = []
+                            localArtists.append(artist['name'])
+
+                        artists.append(localArtists)     
+
+                    return (names, artists)
+                else:
+                    return ("Error fetching playlist data " + str(response.text), 500)
+        else:
+            return ("Error, no id specified", 500)
+    except Exception as e:
+        return e
+
+@app.post("/authenticate")
 async def authenticate(session):
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -57,7 +77,8 @@ async def authenticate(session):
     }
     async with session.post("https://accounts.spotify.com/api/token", data=data) as response:
         print(response.status)
-        print(response.text)
+        cookie = await response.json()
+        return cookie['access_token']
 
 
 
